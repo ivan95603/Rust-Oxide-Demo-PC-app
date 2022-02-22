@@ -1,0 +1,10 @@
+[package]
+name = "oxide-demo-pc-app"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gtk4 = { git = "https://github.com/gtk-rs/gtk4-rs.git", package = "gtk4", features = ["v4_4"] }
+serialport = "4.0.1"
