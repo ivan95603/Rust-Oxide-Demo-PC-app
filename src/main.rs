@@ -1,21 +1,45 @@
+// Copyright 2022, Ivan Palijan <ivan95.603@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/license/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT> or BSD, at your
+// option.  This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! This application is made to interface with MCU via UART.
+//!
+//! It displays data received from sensors MLX90614 and BMP180 connected to MCU.
+//!
+//! This driver was built using [`embedded-hal`] traits.
+//!
+//! [`embedded-hal`]: https://docs.rs/embedded-hal
+
+#![allow(dead_code)]
+#![deny(missing_docs)]
+#![deny(warnings)]
+
 use gtk4 as gtk;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Button, Label, Box as Box_, Orientation,};
+use gtk::{Application, ApplicationWindow, Label, Box as Box_, Orientation};
 
-use std::io::{self, Write};
+use std::io::{self};
 use std::time::Duration;
 
 use std::str;
 
 enum Message {
+    /// Enum parameter for updating from MLX Object temperature
     UpdateObjectTemperatureLabel(String),
+    /// Enum parameter for updating from MLX Ambient temperature
     UpdateAmbientTemperatureLabel(String),
+    /// Enum parameter for updating from BMP180 pressure
     UpdatePressureLabel(String),
+    /// Enum parameter for updating from BMP180 temperature
+    UpdatePressureTemperatureLabel(String),
 }
 
-
+/// Function that generates all user controls 
 fn build_ui(application: &gtk::Application) {
-
 
     let window = ApplicationWindow::builder()
     .application(application)
@@ -24,49 +48,63 @@ fn build_ui(application: &gtk::Application) {
     .default_height(70)
     .build();
 
+    // Vertical Box that holds all controls
     let vbox = Box_::new(Orientation::Vertical, 0);
 
 
-    let hboxObjectTemperature = Box_::new(Orientation::Horizontal, 5);
+    // Horizontal box that holds Object temperature from MLX sensor
+    let hbox_object_temperature = Box_::new(Orientation::Horizontal, 5);
 
-    let labelObjectTemperatureLabel = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Object temperature: ")) ;
-    hboxObjectTemperature.append(&labelObjectTemperatureLabel);
+    let label_object_temperature_label = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Object temperature: ")) ;
+    hbox_object_temperature.append(&label_object_temperature_label);
 
-    let labelObjectTemperatureData = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Object temperature DATA")) ;
-    let labelObjectTemperatureData_clone = labelObjectTemperatureData.clone();
-    hboxObjectTemperature.append(&labelObjectTemperatureData);
+    let label_object_temperature_data = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Object temperature DATA")) ;
+    let label_object_temperature_data_clone = label_object_temperature_data.clone();
+    hbox_object_temperature.append(&label_object_temperature_data);
 
-    vbox.append(&hboxObjectTemperature);
-
-
-
-    let hboxAmbientTemperature = Box_::new(Orientation::Horizontal, 5);
-
-    let labelAmbientTemperatureLabel = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Ambient temperature: ")) ;
-    hboxAmbientTemperature.append(&labelAmbientTemperatureLabel);
-
-    let labelAmbientTemperatureData = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Ambient temperature DATA")) ;
-    let labelAmbientTemperatureData_clone = labelAmbientTemperatureData.clone();
-    hboxAmbientTemperature.append(&labelAmbientTemperatureData);
-
-    vbox.append(&hboxAmbientTemperature);
+    vbox.append(&hbox_object_temperature);
 
 
-    let hboxPressure = Box_::new(Orientation::Horizontal, 5);
+    // Horizontal box that holds Ambient temperature from MLX sensor
+    let hbox_ambient_temperature = Box_::new(Orientation::Horizontal, 5);
 
-    let labelPressureLabel = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Pressure: ")) ;
-    hboxPressure.append(&labelPressureLabel);
+    let label_ambient_temperature_label = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Ambient temperature: ")) ;
+    hbox_ambient_temperature.append(&label_ambient_temperature_label);
 
-    let labelPressureData = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Pressure DATA")) ;
-    let labelPressureData_clone = labelPressureData.clone();
-    hboxPressure.append(&labelPressureData);
+    let label_ambient_temperature_data = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Ambient temperature DATA")) ;
+    let label_ambient_temperature_data_clone = label_ambient_temperature_data.clone();
+    hbox_ambient_temperature.append(&label_ambient_temperature_data);
 
-    vbox.append(&hboxPressure);
+    vbox.append(&hbox_ambient_temperature);
+
+
+    // Horizontal box that holds pressure from BMP sensor
+    let hbox_pressure = Box_::new(Orientation::Horizontal, 5);
+
+    let label_pressure_label = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Pressure: ")) ;
+    hbox_pressure.append(&label_pressure_label);
+
+    let label_pressure_data = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Pressure DATA")) ;
+    let label_pressure_data_clone = label_pressure_data.clone();
+    hbox_pressure.append(&label_pressure_data);
+
+    vbox.append(&hbox_pressure);
+
+
+    // Horizontal box that holds temperature from BMP sensor
+    let hbox_pressure_temperature = Box_::new(Orientation::Horizontal, 5);
+
+    let label_pressure_temperature_label = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Barometer temperature: ")) ;
+    hbox_pressure_temperature.append(&label_pressure_temperature_label);
+
+    let label_pressure_temperature_data = Label::new(gtk::glib::bitflags::_core::option::Option::Some("Pressure DATA")) ;
+    let label_pressure_temperature_data_clone = label_pressure_temperature_data.clone();
+    hbox_pressure_temperature.append(&label_pressure_temperature_data);
+
+    vbox.append(&hbox_pressure_temperature);
+
 
     window.set_child(Some(&vbox));
-
-
-
 
    // Create a new sender/receiver pair with default priority
    let (sender, receiver) = gtk::glib::MainContext::channel(gtk::glib::PRIORITY_DEFAULT);
@@ -99,13 +137,22 @@ fn build_ui(application: &gtk::Application) {
                        match size {
                            2 => {
                                 match split[0]{
+                                    // OT is start of MLX Object temperature data packet received from MCU 
                                     "OT" => {
                                         let _ = sender.send(Message::UpdateObjectTemperatureLabel(split[1].trim().to_owned()));
                                     },
+                                    // AT is start of MLX Ambient temperature data packet received from MCU
                                     "AT" => {
                                         let _ = sender.send(Message::UpdateAmbientTemperatureLabel(split[1].trim().to_owned()));
                                     },
-                                    //TODO: ADD PRESSURE
+                                    // OT is start of BMP180 Pressure data packet received from MCU
+                                    "P" => {
+                                        let _ = sender.send(Message::UpdatePressureLabel(split[1].trim().to_owned()));
+                                    },
+                                    // PTC is start of BMP180 temperature data packet received from MCU
+                                    "PTC" => {
+                                        let _ = sender.send(Message::UpdatePressureTemperatureLabel(split[1].trim().to_owned()));
+                                    },
                                     _ => {
                                         println!("Data code not valid.");
                                     }
@@ -135,15 +182,19 @@ fn build_ui(application: &gtk::Application) {
         match msg {
             Message::UpdateObjectTemperatureLabel(text) => {
                 // println!("UpdateObjectTemperatureLabel {}", &text);
-                labelObjectTemperatureData_clone.set_text(text.as_str());
+                label_object_temperature_data_clone.set_text(text.as_str());
             },
             Message::UpdateAmbientTemperatureLabel(text) => {
                 // println!("UpdateAmbientTemperatureLabel {}", &text);
-                labelAmbientTemperatureData_clone.set_text(text.as_str());
+                label_ambient_temperature_data_clone.set_text(text.as_str());
             },
             Message::UpdatePressureLabel(text) => {
                 // println!("UpdatePressureLabel {}", &text);
-                labelPressureData_clone.set_text(text.as_str());
+                label_pressure_data_clone.set_text(text.as_str());
+            },
+            Message::UpdatePressureTemperatureLabel(text) => {
+                // println!("UpdatePressureLabel {}", &text);
+                label_pressure_temperature_data_clone.set_text(text.as_str());
             },
         }
 
@@ -155,6 +206,7 @@ fn build_ui(application: &gtk::Application) {
     window.show();
 }
 
+/// Main program funcion
 fn main() {
     let application = Application::builder()
         .application_id("com.example.FirstGtkApp")
